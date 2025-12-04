@@ -1,39 +1,44 @@
-import React from 'react';
-import { GoogleMap, useLoadScript, Marker } from '@vis.gl/react-google-maps';
+import React, { useEffect, useRef, useState } from "react";
+import { loadGoogleMaps } from "../utils/loadGoogleMaps";
 
-const AddressMap = ({ address }) => {
-    // Posição central padrão (ex: Brasil, se não tivermos coords exatas)
-    const [position, setPosition] = React.useState({ lat: -23.55052, lng: -46.633308 }); // São Paulo default
+export default function AddressMap({ lat = -23.55, lng = -46.63, stores = [] }){
+  const ref = useRef(null);
+  const mapRef = useRef(null);
+  const [error, setError] = useState(null);
 
-    // Em um projeto real, você precisaria usar uma API de geocodificação
-    // para converter o endereço (logradouro, bairro, cidade) em latitude/longitude.
-    // Como a ViaCEP não fornece isso, usaremos um placeholder por enquanto.
-    // const geocodeAddress = async (address) => { ... }
+  useEffect(() => {
+    const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
+    let mounted = true;
 
-    React.useEffect(() => {
-        // Lógica para obter a latitude/longitude do endereço completo viria aqui
-    }, [address]);
+    if(key){
+      loadGoogleMaps(key).then(google => {
+        if(!mounted) return;
+        if(!mapRef.current){
+          mapRef.current = new google.maps.Map(ref.current, {center:{lat,lng}, zoom:13});
+        } else {
+          mapRef.current.setCenter({lat,lng});
+        }
+        new google.maps.Marker({ position:{lat,lng}, map: mapRef.current, title: "Você" });
+        stores.forEach(s => {
+          const m = new google.maps.Marker({ position:{lat:s.lat,lng:s.lng}, map: mapRef.current, title: s.name });
+          const inf = new google.maps.InfoWindow({ content: `<b>${s.name}</b>`});
+          m.addListener("click", ()=>inf.open(mapRef.current, m));
+        });
+      }).catch(e => { setError(e.message); });
+    } else {
+      setError("NO_KEY");
+    }
 
-    const { isLoaded, loadError } = useLoadScript({
-        // Substitua 'SUA_CHAVE_API_GOOGLE' pela sua chave real
-        apiKey: 'SUA_CHAVE_API_GOOGLE', 
-        libraries: ['maps'],
-    });
+    return () => { mounted = false; };
+  }, [lat,lng,stores]);
 
-    if (loadError) return <div>Erro ao carregar mapas. Verifique sua chave de API.</div>;
-    if (!isLoaded) return <div>Carregando Mapa...</div>;
+  if(!import.meta.env.VITE_GOOGLE_MAPS_KEY || error){
+    const osm = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.03}%2C${lat-0.02}%2C${lng+0.03}%2C${lat+0.02}&layer=mapnik&marker=${lat}%2C${lng}`;
+    return (<div style={{width:"100%",height:340,borderRadius:12,overflow:"hidden",position:"relative"}}>
+      <iframe title="map" src={osm} style={{width:"100%",height:"100%",border:0}}/>
+      <div style={{position:"absolute",right:12,top:12,background:"#fff9",padding:6,borderRadius:8}}>Mapa fallback (OSM)</div>
+    </div>);
+  }
 
-    return (
-        <div style={{ height: '400px', width: '100%' }}>
-            <GoogleMap
-                mapContainerStyle={{ width: '100%', height: '100%' }}
-                center={position}
-                zoom={14}
-            >
-                <Marker position={position} />
-            </GoogleMap>
-        </div>
-    );
-};
-
-export default AddressMap;
+  return <div ref={ref} style={{width:"100%",height:340,borderRadius:12,overflow:"hidden"}} />;
+}

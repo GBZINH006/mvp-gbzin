@@ -1,50 +1,36 @@
-import React, { createContext, useState, useContext, useRef, useEffect } from 'react';
-import { Messages } from 'primereact/messages';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-const CartContext = createContext();
+const CartCtx = createContext();
 
-export const useCart = () => useContext(CartContext);
+export function CartProvider({ children }) {
+  const [cartItems, setCartItems] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("cart") || "[]"); }
+    catch { return []; }
+  });
 
-export const CartProvider = ({ children }) => {
-    const [cartItems, setCartItems] = useState(() => {
-        const localData = localStorage.getItem('cartItems');
-        return localData ? JSON.parse(localData) : [];
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  function addToCart(product){
+    setCartItems(prev => {
+      const found = prev.find(p => p.id === product.id);
+      if(found) return prev.map(p => p.id === product.id ? {...p, quantity: p.quantity + 1} : p);
+      return [...prev, {...product, quantity: 1}];
     });
-    const msgs = useRef(null);
+  }
 
-    useEffect(() => {
-        localStorage.setItem('cartItems', JSON.stringify(cartItems));
-    }, [cartItems]);
+  function removeFromCart(id){
+    setCartItems(prev => prev.filter(p => p.id !== id));
+  }
 
-    const addToCart = (product) => {
-        setCartItems(prevItems => {
-            const existingItem = prevItems.find(item => item.id === product.id);
-            if (existingItem) {
-                return prevItems.map(item =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-                );
-            }
-            return [...prevItems, { ...product, quantity: 1 }];
-        });
-        if (msgs.current) {
-             msgs.current.show({ severity: 'success', summary: 'Adicionado!', detail: `${product.title.substring(0, 20)}... foi adicionado.` });
-        }
-    };
+  function clearCart(){ setCartItems([]); }
 
-    const removeFromCart = (productId) => {
-        setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
-    };
-    
-    const clearCart = () => {
-        setCartItems([]);
-    };
+  return (
+    <CartCtx.Provider value={{ cartItems, addToCart, removeFromCart, clearCart }}>
+      {children}
+    </CartCtx.Provider>
+  );
+}
 
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
-    return (
-        <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, clearCart, totalItems }}>
-            <Messages ref={msgs} />
-            {children}
-        </CartContext.Provider>
-    );
-};
+export function useCart(){ return useContext(CartCtx); }

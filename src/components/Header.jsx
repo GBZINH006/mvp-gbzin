@@ -1,38 +1,48 @@
-import React from 'react';
-import { Menubar } from 'primereact/menubar';
-import { Button } from 'primereact/button';
-import { useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import React, { useState } from "react";
+import { InputText } from "primereact/inputtext";
+import { Button } from "primereact/button";
+import { Badge } from "primereact/badge";
+import { Link, useNavigate } from "react-router-dom";
+import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import "./Header.css";
 
-const Header = () => {
-    const navigate = useNavigate();
-    const { totalItems } = useCart();
+export default function Header(){
+  const { cartItems } = useCart();
+  const { user, logout } = useAuth();
+  const [q, setQ] = useState("");
+  const nav = useNavigate();
 
-    const items = [
-        {
-            label: 'Home',
-            icon: 'pi pi-home',
-            command: () => { navigate('/'); }
-        },
-        {
-            label: 'Admin (Login)',
-            icon: 'pi pi-user',
-            command: () => { navigate('/login'); }
-        }
-    ];
+  function onSearch(){
+    nav(`/?q=${encodeURIComponent(q)}`);
+  }
 
-    const end = (
-        <Button 
-            label={`Carrinho (${totalItems})`} 
-            icon="pi pi-shopping-cart" 
-            className="p-button-rounded p-button-info" 
-            onClick={() => navigate('/cart')}
-        />
-    );
+  return (
+    <header className="header-container">
+      <div className="header-left">
+        <Link to="/" className="logo">GBZINSTORE</Link>
+      </div>
 
-    return (
-        <Menubar model={items} end={end} />
-    );
-};
+      <div className="header-center">
+        <InputText placeholder="Buscar produtos..." value={q} onChange={(e)=>setQ(e.target.value)} />
+        <Button icon="pi pi-search" onClick={onSearch} className="ml-2" />
+      </div>
 
-export default Header;
+      <div className="header-right">
+        {!user ? (
+          <Link to="/login"><Button label="Entrar / Criar Conta" className="p-button-text" /></Link>
+        ) : (
+          <>
+            <span className="username">Olá, {user.name}</span>
+            <Button label="Sair" className="p-button-text" onClick={logout} />
+          </>
+        )}
+
+        <Link to="/cart" className="cart-link" aria-label="Carrinho">
+          <i className="pi pi-shopping-cart cart-icon" />
+          {cartItems.length > 0 && <Badge value={cartItems.length} severity="danger" />}
+        </Link>
+      </div>
+    </header>
+  );
+}
